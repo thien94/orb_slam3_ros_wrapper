@@ -1,0 +1,12 @@
+<launch>
+    <node name="orb_slam3_mono_inertial" pkg="orb_slam3_ros_wrapper" type="orb_slam3_ros_wrapper_mono_inertial" output="screen">
+        <!-- for EuRoC dataset -->
+        <remap from="/camera/image_raw"         to="/cam0/image_raw"/>
+        <remap from="/imu"                      to="/imu0"/>
+
+        <!-- Parameters for original ORB-SLAM3 -->
+        <param name="voc_file"      type="string"   value="$(find orb_slam3_ros_wrapper)/config/ORBvoc.txt" />
+        <param name="settings_file" type="string"   value="$(find orb_slam3_ros_wrapper)/config/EuRoC_mono_inertial_rectified.yaml" />
+        <param name="do_equalize"   type="bool"     value="true" />
+    </node>
+</launch>

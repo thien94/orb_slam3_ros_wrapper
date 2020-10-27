@@ -1,0 +1,14 @@
+<launch>
+    <node name="orb_slam3_stereo_inertial" pkg="orb_slam3_ros_wrapper" type="orb_slam3_ros_wrapper_stereo_inertial" output="screen">
+        <!-- for EuRoC dataset -->
+        <remap from="/camera/left/image_raw"    to="/cam0/image_raw"/>
+        <remap from="/camera/right/image_raw"   to="/cam1/image_raw"/>
+        <remap from="/imu"                      to="/imu0"/>
+
+        <!-- Parameters for original ORB-SLAM3 -->
+        <param name="voc_file"      type="string"   value="$(find orb_slam3_ros_wrapper)/config/ORBvoc.txt" />
+        <param name="settings_file" type="string"   value="$(find orb_slam3_ros_wrapper)/config/EuRoC_stereo_inertial_non_rectified.yaml" />
+        <param name="do_rectify"    type="bool"     value="true" />
+        <param name="do_equalize"   type="bool"     value="true" />
+    </node>
+</launch>

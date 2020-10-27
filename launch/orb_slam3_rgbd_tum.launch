@@ -1,0 +1,11 @@
+<launch>
+    <node name="orb_slam3_rbgd" pkg="orb_slam3_ros_wrapper" type="orb_slam3_ros_wrapper_rgbd" output="screen">
+        <!-- for EuRoC dataset -->
+        <remap from="/camera/rgb/image_raw"                 to="/camera/rgb/image_color"/>
+        <remap from="/camera/depth_registered/image_raw"    to="/camera/depth/image"/>
+
+        <!-- Parameters for original ORB-SLAM3 -->
+        <param name="voc_file"      type="string"   value="$(find orb_slam3_ros_wrapper)/config/ORBvoc.txt" />
+        <param name="settings_file" type="string"   value="$(find orb_slam3_ros_wrapper)/config/TUM1.yaml" />
+    </node>
+</launch>
