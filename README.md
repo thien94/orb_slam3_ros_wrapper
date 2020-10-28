@@ -40,12 +40,16 @@ set(ORB_SLAM3_DIR
 - Clone and build the package. Note that it should be a `catkin build` workspace.
 
 ```
-cd catkin_ws/src
+cd catkin_ws/src # Or the name of your workspace
 git clone https://github.com/thien94/orb-slam3-ros-wrapper.git
 cd ../
 catkin build
 ```
-- Copy the `ORBvoc.txt` file from `ORB-SLAM3/Vocabulary/` folder to the `config` folder in this package. Alternatively, you can change the `voc_file` to point to the right folder.
+- Unzip the `ORBvoc.txt` file in the `config` folder in this package. Alternatively, you can change the `voc_file` to point to the right folder.
+```
+cd catkin_ws/src/orb_slam3_ros_wrapper/
+tar -xf ORBvoc.txt.tar.gz
+```
 
 - If everything works fine, try the different launch files in the `launch` folder.
 
