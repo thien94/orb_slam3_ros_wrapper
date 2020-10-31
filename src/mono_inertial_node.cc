@@ -4,23 +4,7 @@
 *
 */
 
-#include <iostream>
-#include <algorithm>
-#include <fstream>
-#include <chrono>
-#include <vector>
-#include <queue>
-#include <thread>
-#include <mutex>
-
-#include <ros/ros.h>
-#include <cv_bridge/cv_bridge.h>
-#include <sensor_msgs/Imu.h>
-#include <opencv2/core/core.hpp>
-
-// ORB-SLAM3-specific libraries. Directory is defined in CMakeLists.txt: ${ORB_SLAM3_DIR}
-#include "include/System.h"
-#include "include/ImuTypes.h"
+#include "common.h"
 
 using namespace std;
 
@@ -58,37 +42,53 @@ int main(int argc, char **argv)
 {
     ros::init(argc, argv, "Mono_Inertial");
     ros::console::set_logger_level(ROSCONSOLE_DEFAULT_NAME, ros::console::levels::Info);
+    if (argc > 1)
+    {
+        ROS_WARN ("Arguments supplied via command line are neglected.");
+    }
 
     ros::NodeHandle node_handler;
-    std::string name_of_node = ros::this_node::getName();
+    std::string node_name = ros::this_node::getName();
+    image_transport::ImageTransport image_transport(node_handler);
 
-    if (!node_handler.hasParam(name_of_node + "/voc_file") || !node_handler.hasParam(name_of_node + "/settings_file"))
+    std::string voc_file, settings_file;
+    node_handler.param<std::string>(node_name + "/voc_file", voc_file, "file_not_set");
+    node_handler.param<std::string>(node_name + "/settings_file", settings_file, "file_not_set");
+
+    if (voc_file == "file_not_set" || settings_file == "file_not_set")
     {
-        ROS_ERROR("Mono-inertial node failed to initialize");
-        cerr << endl << "Please provide voc_file and settings_file in the launch file. do_equalize is optional." << endl; 
+        ROS_ERROR("Please provide voc_file and settings_file in the launch file");       
         ros::shutdown();
         return 1;
     }
 
-    bool bEqual = false;
-    std::string voc_file, settings_file;
-    node_handler.param<bool>(name_of_node + "/do_equalize", bEqual, false);
-    node_handler.param<std::string>(name_of_node + "/voc_file", voc_file, "file_not_set");
-    node_handler.param<std::string>(name_of_node + "/settings_file", settings_file, "file_not_set");
+    node_handler.param<std::string>(node_name + "/map_frame_id", map_frame_id, "map");
+    node_handler.param<std::string>(node_name + "/pose_frame_id", pose_frame_id, "pose");
 
+    bool bEqual = false;
+    node_handler.param<bool>(node_name + "/do_equalize", bEqual, false);
+    
     // Create SLAM system. It initializes all system threads and gets ready to process frames.
     ORB_SLAM3::System SLAM(voc_file, settings_file, ORB_SLAM3::System::IMU_MONOCULAR, true);
 
     ImuGrabber imugb;
     ImageGrabber igb(&SLAM, &imugb, bEqual);
 
-    // Maximum delay, 5 seconds * 200Hz = 1000 samples
     ros::Subscriber sub_imu = node_handler.subscribe("/imu", 1000, &ImuGrabber::GrabImu, &imugb); 
-    ros::Subscriber sub_img0 = node_handler.subscribe("/camera/image_raw", 100, &ImageGrabber::GrabImage,&igb);
+    ros::Subscriber sub_img0 = node_handler.subscribe("/camera/image_raw", 100, &ImageGrabber::GrabImage, &igb);
+
+    setup_ros_publishers(node_handler, image_transport);
 
     std::thread sync_thread(&ImageGrabber::SyncWithImu, &igb);
 
+    setup_tf_orb_to_ros(ORB_SLAM3::System::IMU_MONOCULAR);
+
     ros::spin();
+
+    // Stop all threads
+    SLAM.Shutdown();
+
+    ros::shutdown();
 
     return 0;
 }
@@ -130,10 +130,12 @@ void ImageGrabber::SyncWithImu()
 {
     while(1)
     {
-        cv::Mat im;
-        double tIm = 0;
         if (!img0Buf.empty()&&!mpImuGb->imuBuf.empty())
         {
+            cv::Mat im;
+            double tIm = 0;
+            ros::Time current_frame_time;
+
             tIm = img0Buf.front()->header.stamp.toSec();
             if(tIm>mpImuGb->imuBuf.back()->header.stamp.toSec())
                 continue;
@@ -141,22 +143,23 @@ void ImageGrabber::SyncWithImu()
             {
             this->mBufMutex.lock();
             im = GetImage(img0Buf.front());
+            current_frame_time = img0Buf.front()->header.stamp;
             img0Buf.pop();
             this->mBufMutex.unlock();
             }
 
             vector<ORB_SLAM3::IMU::Point> vImuMeas;
             mpImuGb->mBufMutex.lock();
-            if(!mpImuGb->imuBuf.empty())
+            if (!mpImuGb->imuBuf.empty())
             {
                 // Load imu measurements from buffer
                 vImuMeas.clear();
-                while(!mpImuGb->imuBuf.empty() && mpImuGb->imuBuf.front()->header.stamp.toSec()<=tIm)
+                while(!mpImuGb->imuBuf.empty() && mpImuGb->imuBuf.front()->header.stamp.toSec() <= tIm)
                 {
                     double t = mpImuGb->imuBuf.front()->header.stamp.toSec();
                     cv::Point3f acc(mpImuGb->imuBuf.front()->linear_acceleration.x, mpImuGb->imuBuf.front()->linear_acceleration.y, mpImuGb->imuBuf.front()->linear_acceleration.z);
                     cv::Point3f gyr(mpImuGb->imuBuf.front()->angular_velocity.x, mpImuGb->imuBuf.front()->angular_velocity.y, mpImuGb->imuBuf.front()->angular_velocity.z);
-                    vImuMeas.push_back(ORB_SLAM3::IMU::Point(acc,gyr,t));
+                    vImuMeas.push_back(ORB_SLAM3::IMU::Point(acc, gyr, t));
                     mpImuGb->imuBuf.pop();
                 }
             }
@@ -164,7 +167,14 @@ void ImageGrabber::SyncWithImu()
             if(mbClahe)
                 mClahe->apply(im,im);
 
-            mpSLAM->TrackMonocular(im,tIm,vImuMeas);
+            // Main algorithm runs here
+            cv::Mat Tcw = mpSLAM->TrackMonocular(im, tIm, vImuMeas);
+
+            publish_ros_pose_tf(Tcw, current_frame_time, ORB_SLAM3::System::IMU_MONOCULAR);
+
+            publish_ros_tracking_mappoints(mpSLAM->GetTrackedMapPoints(), current_frame_time);
+
+            // publish_ros_tracking_img(mpSLAM->GetCurrentFrame(), current_frame_time);
         }
 
         std::chrono::milliseconds tSleep(1);

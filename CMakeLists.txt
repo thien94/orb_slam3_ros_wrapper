@@ -40,6 +40,7 @@ include_directories(
    ${ORB_SLAM3_DIR}
    ${ORB_SLAM3_DIR}/include
    ${ORB_SLAM3_DIR}/include/CameraModels
+   ${PROJECT_SOURCE_DIR}/include
    ${EIGEN3_INCLUDE_DIR}
    ${catkin_INCLUDE_DIRS}
    ${Pangolin_INCLUDE_DIRS}
@@ -57,6 +58,7 @@ set(LIBS
 # mono node
 add_executable (${PROJECT_NAME}_mono
    src/mono_node.cc
+   src/common.cc
 )
 target_link_libraries(${PROJECT_NAME}_mono
    ${LIBS}
@@ -65,6 +67,7 @@ target_link_libraries(${PROJECT_NAME}_mono
 # mono-inertial node
 add_executable (${PROJECT_NAME}_mono_inertial
    src/mono_inertial_node.cc
+   src/common.cc
 )
 target_link_libraries(${PROJECT_NAME}_mono_inertial
    ${LIBS}
@@ -73,6 +76,7 @@ target_link_libraries(${PROJECT_NAME}_mono_inertial
 # stereo node
 add_executable (${PROJECT_NAME}_stereo
    src/stereo_node.cc
+   src/common.cc
 )
 target_link_libraries(${PROJECT_NAME}_stereo
    ${LIBS}
@@ -81,6 +85,7 @@ target_link_libraries(${PROJECT_NAME}_stereo
 # stereo-inertial node
 add_executable (${PROJECT_NAME}_stereo_inertial
    src/stereo_inertial_node.cc
+   src/common.cc
 )
 target_link_libraries(${PROJECT_NAME}_stereo_inertial
    ${LIBS}
@@ -89,6 +94,7 @@ target_link_libraries(${PROJECT_NAME}_stereo_inertial
 # RGB-D node
 add_executable (${PROJECT_NAME}_rgbd
    src/rgbd_node.cc
+   src/common.cc
 )
 target_link_libraries(${PROJECT_NAME}_rgbd
    ${LIBS}

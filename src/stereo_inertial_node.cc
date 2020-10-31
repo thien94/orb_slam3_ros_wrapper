@@ -4,24 +4,7 @@
 *
 */
 
-#include <iostream>
-#include <algorithm>
-#include <fstream>
-#include <chrono>
-#include <vector>
-#include <queue>
-#include <thread>
-#include <mutex>
-
-#include <ros/ros.h>
-#include <cv_bridge/cv_bridge.h>
-#include <sensor_msgs/Imu.h>
-
-#include <opencv2/core/core.hpp>
-
-// ORB-SLAM3-specific libraries. Directory is defined in CMakeLists.txt: ${ORB_SLAM3_DIR}
-#include "include/System.h"
-#include "include/ImuTypes.h"
+#include "common.h"
 
 using namespace std;
 
@@ -62,24 +45,31 @@ int main(int argc, char **argv)
 {
     ros::init(argc, argv, "Stereo_Inertial");
     ros::console::set_logger_level(ROSCONSOLE_DEFAULT_NAME, ros::console::levels::Info);
+    if (argc > 1)
+    {
+        ROS_WARN ("Arguments supplied via command line are neglected.");
+    }
 
     ros::NodeHandle node_handler;
-    std::string name_of_node = ros::this_node::getName();
-    
-    if (!node_handler.hasParam(name_of_node + "/voc_file") || !node_handler.hasParam(name_of_node + "/settings_file"))
+    std::string node_name = ros::this_node::getName();
+
+    std::string voc_file, settings_file;
+    node_handler.param<std::string>(node_name + "/voc_file", voc_file, "file_not_set");
+    node_handler.param<std::string>(node_name + "/settings_file", settings_file, "file_not_set");
+
+    if (voc_file == "file_not_set" || settings_file == "file_not_set")
     {
-        ROS_ERROR("Stereo-inertial node failed to initialize");
-        cerr << endl << "Please provide voc_file and settings_file in the launch file. do_equalize and do_rectify are optional." << endl; 
+        ROS_ERROR("Please provide voc_file and settings_file in the launch file");       
         ros::shutdown();
         return 1;
     }
 
+    node_handler.param<std::string>(node_name + "/map_frame_id", map_frame_id, "map");
+    node_handler.param<std::string>(node_name + "/pose_frame_id", pose_frame_id, "pose");
+
     bool bEqual = false, do_rectify = false;
-    std::string voc_file, settings_file;
-    node_handler.param<bool>(name_of_node + "/do_equalize", bEqual, false);
-    node_handler.param<bool>(name_of_node + "/do_rectify", do_rectify, false);
-    node_handler.param<std::string>(name_of_node + "/voc_file", voc_file, "file_not_set");
-    node_handler.param<std::string>(name_of_node + "/settings_file", settings_file, "file_not_set");
+    node_handler.param<bool>(node_name + "/do_equalize", bEqual, false);
+    node_handler.param<bool>(node_name + "/do_rectify", do_rectify, false);
 
     // Create SLAM system. It initializes all system threads and gets ready to process frames.
     ORB_SLAM3::System SLAM(voc_file, settings_file, ORB_SLAM3::System::IMU_STEREO, true);
@@ -131,7 +121,12 @@ int main(int argc, char **argv)
     ros::Subscriber sub_img_left = node_handler.subscribe("/camera/left/image_raw", 100, &ImageGrabber::GrabImageLeft, &igb);
     ros::Subscriber sub_img_right = node_handler.subscribe("/camera/right/image_raw", 100, &ImageGrabber::GrabImageRight, &igb);
 
-    std::thread sync_thread(&ImageGrabber::SyncWithImu,&igb);
+    pose_pub = node_handler.advertise<geometry_msgs::PoseStamped> ("/orb_slam3_ros/camera", 1);
+    map_points_pub = node_handler.advertise<sensor_msgs::PointCloud2>("orb_slam3_ros/map_points", 1);
+
+    setup_tf_orb_to_ros(ORB_SLAM3::System::IMU_STEREO);
+
+    std::thread sync_thread(&ImageGrabber::SyncWithImu, &igb);
 
     ros::spin();
 
@@ -218,6 +213,7 @@ void ImageGrabber::SyncWithImu()
 
         this->mBufMutexLeft.lock();
         imLeft = GetImage(imgLeftBuf.front());
+        ros::Time current_frame_time = imgLeftBuf.front()->header.stamp;
         imgLeftBuf.pop();
         this->mBufMutexLeft.unlock();
 
@@ -253,8 +249,13 @@ void ImageGrabber::SyncWithImu()
             cv::remap(imLeft,imLeft,M1l,M2l,cv::INTER_LINEAR);
             cv::remap(imRight,imRight,M1r,M2r,cv::INTER_LINEAR);
         }
+        
+        // Main algorithm runs here
+        cv::Mat Tcw = mpSLAM->TrackStereo(imLeft,imRight,tImLeft,vImuMeas);
 
-        mpSLAM->TrackStereo(imLeft,imRight,tImLeft,vImuMeas);
+        publish_ros_pose_tf(Tcw, current_frame_time, ORB_SLAM3::System::IMU_STEREO);
+
+        publish_ros_tracking_mappoints(mpSLAM->GetTrackedMapPoints(), current_frame_time);
 
         std::chrono::milliseconds tSleep(1);
         std::this_thread::sleep_for(tSleep);
