@@ -5,8 +5,8 @@
 A ROS wrapper for [ORB-SLAM3](https://github.com/UZ-SLAMLab/ORB_SLAM3). The main idea is to use the ORB-SLAM3 as a standalone library and interface with it instead of putting everything in one package.
 
 - **Pros**:
-  - Easy to update the ORB-SLAM3 library (currently in [V0.3 Beta](https://github.com/UZ-SLAMLab/ORB_SLAM3#orb-slam3)).
-  - Easy to plug in different variants (and there are many) that are not built for ROS (hopefully).
+  - Easy to update the [ORB-SLAM3 core library](https://github.com/UZ-SLAMLab/ORB_SLAM3#orb-slam3)) indepedently.
+  - Easy to plug in different variants (and there are many) that are not built for ROS.
 - **Cons**:
   - Might be more difficult to spot bugs.
   - Development involves more steps (1. Make changes in ORB-SLAM3 library -> 2. Build ORB-SLAM3 -> 3. Change the ROS-wrapper if necessary -> 4. Test).
