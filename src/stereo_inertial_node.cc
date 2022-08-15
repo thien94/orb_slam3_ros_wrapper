@@ -21,7 +21,7 @@ public:
 class ImageGrabber
 {
 public:
-    ImageGrabber(ORB_SLAM3::System* pSLAM, ImuGrabber *pImuGb, const bool bRect, const bool bClahe): mpSLAM(pSLAM), mpImuGb(pImuGb), do_rectify(bRect), mbClahe(bClahe){}
+    ImageGrabber(ORB_SLAM3::System* pSLAM, ImuGrabber *pImuGb): mpSLAM(pSLAM), mpImuGb(pImuGb){}
 
     void GrabImageLeft(const sensor_msgs::ImageConstPtr& msg);
     void GrabImageRight(const sensor_msgs::ImageConstPtr& msg);
@@ -33,12 +33,6 @@ public:
    
     ORB_SLAM3::System* mpSLAM;
     ImuGrabber *mpImuGb;
-
-    const bool do_rectify;
-    cv::Mat M1l,M2l,M1r,M2r;
-
-    const bool mbClahe;
-    cv::Ptr<cv::CLAHE> mClahe = cv::createCLAHE(3.0, cv::Size(8, 8));
 };
 
 int main(int argc, char **argv)
@@ -47,7 +41,7 @@ int main(int argc, char **argv)
     ros::console::set_logger_level(ROSCONSOLE_DEFAULT_NAME, ros::console::levels::Info);
     if (argc > 1)
     {
-        ROS_WARN ("Arguments supplied via command line are neglected.");
+        ROS_WARN ("Arguments supplied via command line are ignored.");
     }
 
     ros::NodeHandle node_handler;
@@ -67,54 +61,11 @@ int main(int argc, char **argv)
     node_handler.param<std::string>(node_name + "/map_frame_id", map_frame_id, "map");
     node_handler.param<std::string>(node_name + "/pose_frame_id", pose_frame_id, "pose");
 
-    bool bEqual = false, do_rectify = false;
-    node_handler.param<bool>(node_name + "/do_equalize", bEqual, false);
-    node_handler.param<bool>(node_name + "/do_rectify", do_rectify, false);
-
     // Create SLAM system. It initializes all system threads and gets ready to process frames.
     ORB_SLAM3::System SLAM(voc_file, settings_file, ORB_SLAM3::System::IMU_STEREO, true);
 
     ImuGrabber imugb;
-    ImageGrabber igb(&SLAM, &imugb, do_rectify, bEqual);
-    
-    if(igb.do_rectify)
-    {      
-        // Load settings related to stereo calibration
-        cv::FileStorage fsSettings(settings_file, cv::FileStorage::READ);
-        if(!fsSettings.isOpened())
-        {
-            cerr << "ERROR: Wrong path to settings" << endl;
-            return -1;
-        }
-
-        cv::Mat K_l, K_r, P_l, P_r, R_l, R_r, D_l, D_r;
-        fsSettings["LEFT.K"] >> K_l;
-        fsSettings["RIGHT.K"] >> K_r;
-
-        fsSettings["LEFT.P"] >> P_l;
-        fsSettings["RIGHT.P"] >> P_r;
-
-        fsSettings["LEFT.R"] >> R_l;
-        fsSettings["RIGHT.R"] >> R_r;
-
-        fsSettings["LEFT.D"] >> D_l;
-        fsSettings["RIGHT.D"] >> D_r;
-
-        int rows_l = fsSettings["LEFT.height"];
-        int cols_l = fsSettings["LEFT.width"];
-        int rows_r = fsSettings["RIGHT.height"];
-        int cols_r = fsSettings["RIGHT.width"];
-
-        if(K_l.empty() || K_r.empty() || P_l.empty() || P_r.empty() || R_l.empty() || R_r.empty() || D_l.empty() || D_r.empty() ||
-                rows_l==0 || rows_r==0 || cols_l==0 || cols_r==0)
-        {
-            cerr << "ERROR: Calibration parameters to rectify stereo are missing!" << endl;
-            return -1;
-        }
-
-        cv::initUndistortRectifyMap(K_l,D_l,R_l,P_l.rowRange(0,3).colRange(0,3),cv::Size(cols_l,rows_l),CV_32F,igb.M1l,igb.M2l);
-        cv::initUndistortRectifyMap(K_r,D_r,R_r,P_r.rowRange(0,3).colRange(0,3),cv::Size(cols_r,rows_r),CV_32F,igb.M1r,igb.M2r);
-    }
+    ImageGrabber igb(&SLAM, &imugb);
 
     // Maximum delay, 5 seconds * 200Hz = 1000 samples
     ros::Subscriber sub_imu = node_handler.subscribe("/imu", 1000, &ImuGrabber::GrabImu, &imugb); 
@@ -238,20 +189,10 @@ void ImageGrabber::SyncWithImu()
             }
         }
         mpImuGb->mBufMutex.unlock();
-        if(mbClahe)
-        {
-            mClahe->apply(imLeft,imLeft);
-            mClahe->apply(imRight,imRight);
-        }
-
-        if(do_rectify)
-        {
-            cv::remap(imLeft,imLeft,M1l,M2l,cv::INTER_LINEAR);
-            cv::remap(imRight,imRight,M1r,M2r,cv::INTER_LINEAR);
-        }
         
         // Main algorithm runs here
-        cv::Mat Tcw = mpSLAM->TrackStereo(imLeft,imRight,tImLeft,vImuMeas);
+        Sophus::SE3f Tcw_SE3f = mpSLAM->TrackStereo(imLeft,imRight,tImLeft,vImuMeas);
+        cv::Mat Tcw = SE3f_to_cvMat(Tcw_SE3f);
 
         publish_ros_pose_tf(Tcw, current_frame_time, ORB_SLAM3::System::IMU_STEREO);
 

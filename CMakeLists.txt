@@ -7,7 +7,7 @@ set(ORB_SLAM3_DIR
 )
 
 set(CMAKE_BUILD_TYPE "Release")
-set(CMAKE_CXX_FLAGS "-std=c++11")
+set(CMAKE_CXX_FLAGS "-std=c++14")
 set(CMAKE_CXX_FLAGS_RELEASE "-O3 -Wall -g")
 
 find_package (catkin REQUIRED COMPONENTS
@@ -25,8 +25,8 @@ find_package(OpenCV REQUIRED)
 MESSAGE("OPENCV VERSION:")
 MESSAGE(${OpenCV_VERSION})
 
-find_package(Eigen3)
-MESSAGE("Eigen 3 VERSION:")
+find_package(Eigen3 REQUIRED)
+MESSAGE("Eigen3 VERSION:")
 MESSAGE(${Eigen3_VERSION})
 
 find_package(Pangolin REQUIRED)
@@ -40,6 +40,7 @@ include_directories(
    ${ORB_SLAM3_DIR}
    ${ORB_SLAM3_DIR}/include
    ${ORB_SLAM3_DIR}/include/CameraModels
+   ${ORB_SLAM3_DIR}/Thirdparty/Sophus
    ${PROJECT_SOURCE_DIR}/include
    ${EIGEN3_INCLUDE_DIR}
    ${catkin_INCLUDE_DIRS}

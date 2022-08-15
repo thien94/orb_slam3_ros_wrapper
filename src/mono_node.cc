@@ -24,7 +24,7 @@ int main(int argc, char **argv)
     ros::console::set_logger_level(ROSCONSOLE_DEFAULT_NAME, ros::console::levels::Info);
     if (argc > 1)
     {
-        ROS_WARN ("Arguments supplied via command line are neglected.");
+        ROS_WARN ("Arguments supplied via command line are ignored.");
     }
 
     ros::NodeHandle node_handler;
@@ -83,7 +83,8 @@ void ImageGrabber::GrabImage(const sensor_msgs::ImageConstPtr& msg)
     }
 
     // Main algorithm runs here
-    cv::Mat Tcw = mpSLAM->TrackMonocular(cv_ptr->image, cv_ptr->header.stamp.toSec());
+    Sophus::SE3f Tcw_SE3f = mpSLAM->TrackMonocular(cv_ptr->image, cv_ptr->header.stamp.toSec());
+    cv::Mat Tcw = SE3f_to_cvMat(Tcw_SE3f);
 
     ros::Time current_frame_time = msg->header.stamp;
 

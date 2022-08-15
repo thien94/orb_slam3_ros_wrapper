@@ -177,8 +177,9 @@ sensor_msgs::PointCloud2 tracked_mappoints_to_pointcloud(std::vector<ORB_SLAM3::
     {
         if (map_points[i])
         {
+            Eigen::Vector3d P3Dw = map_points[i]->GetWorldPos().cast<double>();
 
-            tf::Vector3 point_translation(map_points[i]->GetWorldPos().at<float> (0), map_points[i]->GetWorldPos().at<float> (1), map_points[i]->GetWorldPos().at<float> (2));
+            tf::Vector3 point_translation(P3Dw.x(), P3Dw.y(), P3Dw.z());
 
             point_translation = tf_orb_to_ros * point_translation;
 
@@ -188,4 +189,15 @@ sensor_msgs::PointCloud2 tracked_mappoints_to_pointcloud(std::vector<ORB_SLAM3::
         }
     }
     return cloud;
+}
+
+// Convert ORB-SLAM3's output to cv::Mat format
+cv::Mat SE3f_to_cvMat(Sophus::SE3f Tcw_SE3f)
+{
+    cv::Mat Tcw;
+
+    Eigen::Matrix4f Tcw_Matrix = Tcw_SE3f.matrix();
+    cv::eigen2cv(Tcw_Matrix, Tcw);
+    
+    return Tcw;
 }

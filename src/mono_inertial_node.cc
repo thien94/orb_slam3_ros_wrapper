@@ -21,7 +21,7 @@ public:
 class ImageGrabber
 {
 public:
-    ImageGrabber(ORB_SLAM3::System* pSLAM, ImuGrabber *pImuGb, const bool bClahe): mpSLAM(pSLAM), mpImuGb(pImuGb), mbClahe(bClahe){}
+    ImageGrabber(ORB_SLAM3::System* pSLAM, ImuGrabber *pImuGb): mpSLAM(pSLAM), mpImuGb(pImuGb){}
 
     void GrabImage(const sensor_msgs::ImageConstPtr& msg);
     cv::Mat GetImage(const sensor_msgs::ImageConstPtr &img_msg);
@@ -32,9 +32,6 @@ public:
    
     ORB_SLAM3::System* mpSLAM;
     ImuGrabber *mpImuGb;
-
-    const bool mbClahe;
-    cv::Ptr<cv::CLAHE> mClahe = cv::createCLAHE(3.0, cv::Size(8, 8));
 };
 
 
@@ -44,7 +41,7 @@ int main(int argc, char **argv)
     ros::console::set_logger_level(ROSCONSOLE_DEFAULT_NAME, ros::console::levels::Info);
     if (argc > 1)
     {
-        ROS_WARN ("Arguments supplied via command line are neglected.");
+        ROS_WARN ("Arguments supplied via command line are ignored.");
     }
 
     ros::NodeHandle node_handler;
@@ -65,14 +62,11 @@ int main(int argc, char **argv)
     node_handler.param<std::string>(node_name + "/map_frame_id", map_frame_id, "map");
     node_handler.param<std::string>(node_name + "/pose_frame_id", pose_frame_id, "pose");
 
-    bool bEqual = false;
-    node_handler.param<bool>(node_name + "/do_equalize", bEqual, false);
-    
     // Create SLAM system. It initializes all system threads and gets ready to process frames.
     ORB_SLAM3::System SLAM(voc_file, settings_file, ORB_SLAM3::System::IMU_MONOCULAR, true);
 
     ImuGrabber imugb;
-    ImageGrabber igb(&SLAM, &imugb, bEqual);
+    ImageGrabber igb(&SLAM, &imugb);
 
     ros::Subscriber sub_imu = node_handler.subscribe("/imu", 1000, &ImuGrabber::GrabImu, &imugb); 
     ros::Subscriber sub_img0 = node_handler.subscribe("/camera/image_raw", 100, &ImageGrabber::GrabImage, &igb);
@@ -164,11 +158,10 @@ void ImageGrabber::SyncWithImu()
                 }
             }
             mpImuGb->mBufMutex.unlock();
-            if(mbClahe)
-                mClahe->apply(im,im);
 
             // Main algorithm runs here
-            cv::Mat Tcw = mpSLAM->TrackMonocular(im, tIm, vImuMeas);
+            Sophus::SE3f Tcw_SE3f = mpSLAM->TrackMonocular(im, tIm, vImuMeas);
+            cv::Mat Tcw = SE3f_to_cvMat(Tcw_SE3f);
 
             publish_ros_pose_tf(Tcw, current_frame_time, ORB_SLAM3::System::IMU_MONOCULAR);
 
