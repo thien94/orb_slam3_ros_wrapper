@@ -1,18 +1,19 @@
 <launch>
-    <node name="orb_slam3_rbgd" pkg="orb_slam3_ros_wrapper" type="orb_slam3_ros_wrapper_rgbd" output="screen">
-        <!-- for TUM dataset -->
-        <remap from="/camera/rgb/image_raw"                 to="/camera/rgb/image_color"/>
-        <remap from="/camera/depth_registered/image_raw"    to="/camera/depth/image"/>
+    <!-- ORB-SLAM3 -->
+    <node name="orb_slam3_mono_inertial" pkg="orb_slam3_ros_wrapper" type="orb_slam3_ros_wrapper_mono_inertial" output="screen">
+        <!-- From realsense2_camera node -->
+        <remap from="/camera/image_raw"         to="/camera/fisheye1/image_raw"/>
+        <remap from="/imu"                      to="/camera/imu"/>
 
         <!-- Parameters for original ORB-SLAM3 -->
         <param name="voc_file"      type="string"   value="$(find orb_slam3_ros_wrapper)/config/ORBvoc.txt" />
-        <param name="settings_file" type="string"   value="$(find orb_slam3_ros_wrapper)/config/TUM1.yaml" />
-    
+        <param name="settings_file" type="string"   value="$(find orb_slam3_ros_wrapper)/config/Realsense_T265.yaml" />
+
         <!-- Parameters for ROS -->
         <param name="map_frame_id"  type="string"   value="world" />
         <param name="pose_frame_id" type="string"   value="camera" />
     </node>
-    
+
     <!-- Visualization - RViz-->
     <node name="rviz" pkg="rviz" type="rviz" args="-d $(find orb_slam3_ros_wrapper)/config/orb_slam3.rviz" output="screen" />
 
