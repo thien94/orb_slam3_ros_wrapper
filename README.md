@@ -61,6 +61,8 @@ cd ~/catkin_ws/
 catkin build
 ```
 
+- Next, copy the `ORBvoc.txt` file from `ORB-SLAM3/Vocabulary/` folder to the `config` folder in this package. Alternatively, you can change the `voc_file` param in the launch file to point to the right location.
+
 - (Optional) Install `hector-trajectory-server` to visualize the trajectory.
 ```
 sudo apt install ros-[DISTRO]-hector-trajectory-server
