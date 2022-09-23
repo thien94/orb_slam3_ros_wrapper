@@ -1,4 +1,4 @@
-**Ongoing development.**
+## **Note:** [A new version is available here](https://github.com/thien94/orb_slam_3_ros), where ORB-SLAM3 (V1.0) can be used like a normal ROS package.
 
 # ROS wrapper for ORB-SLAM3
 
