@@ -30,6 +30,7 @@ int main(int argc, char **argv)
 
     ros::NodeHandle node_handler;
     std::string node_name = ros::this_node::getName();
+    image_transport::ImageTransport image_transport(node_handler);
 
     std::string voc_file, settings_file;
     node_handler.param<std::string>(node_name + "/voc_file", voc_file, "file_not_set");
@@ -42,12 +43,15 @@ int main(int argc, char **argv)
         return 1;
     } 
 
-    node_handler.param<std::string>(node_name + "/map_frame_id", map_frame_id, "map");
-    node_handler.param<std::string>(node_name + "/pose_frame_id", pose_frame_id, "pose");
+    node_handler.param<std::string>(node_name + "/world_frame_id", world_frame_id, "map");
+    node_handler.param<std::string>(node_name + "/cam_frame_id", cam_frame_id, "camera");
+
+    bool enable_pangolin;
+    node_handler.param<bool>(node_name + "/enable_pangolin", enable_pangolin, true);
     
     // Create SLAM system. It initializes all system threads and gets ready to process frames.
-    ORB_SLAM3::System SLAM(voc_file, settings_file, ORB_SLAM3::System::STEREO, true);
-
+    sensor_type = ORB_SLAM3::System::STEREO;
+    ORB_SLAM3::System SLAM(voc_file, settings_file, sensor_type, enable_pangolin);
     ImageGrabber igb(&SLAM);
 
     message_filters::Subscriber<sensor_msgs::Image> left_sub(node_handler, "/camera/left/image_raw", 1);
@@ -56,17 +60,12 @@ int main(int argc, char **argv)
     message_filters::Synchronizer<sync_pol> sync(sync_pol(10), left_sub, right_sub);
     sync.registerCallback(boost::bind(&ImageGrabber::GrabStereo,&igb,_1,_2));
 
-    pose_pub = node_handler.advertise<geometry_msgs::PoseStamped> ("/orb_slam3_ros/camera", 1);
-
-    map_points_pub = node_handler.advertise<sensor_msgs::PointCloud2>("orb_slam3_ros/map_points", 1);
-
-    setup_tf_orb_to_ros(ORB_SLAM3::System::STEREO);
+    setup_ros_publishers(node_handler, image_transport, sensor_type);
 
     ros::spin();
 
     // Stop all threads
     SLAM.Shutdown();
-
     ros::shutdown();
 
     return 0;
@@ -98,14 +97,12 @@ void ImageGrabber::GrabStereo(const sensor_msgs::ImageConstPtr& msgLeft,const se
     }
 
     // Main algorithm runs here
-    Sophus::SE3f Tcw_SE3f = mpSLAM->TrackStereo(cv_ptrLeft->image,cv_ptrRight->image,cv_ptrLeft->header.stamp.toSec());
-    cv::Mat Tcw = SE3f_to_cvMat(Tcw_SE3f);
+    Sophus::SE3f Tcw = mpSLAM->TrackStereo(cv_ptrLeft->image,cv_ptrRight->image,cv_ptrLeft->header.stamp.toSec());
+    Sophus::SE3f Twc = Tcw.inverse();
 
-    ros::Time current_frame_time = cv_ptrLeft->header.stamp;
+    ros::Time msg_time = cv_ptrLeft->header.stamp;
 
-    publish_ros_pose_tf(Tcw, current_frame_time, ORB_SLAM3::System::STEREO);
-
-    publish_ros_tracking_mappoints(mpSLAM->GetTrackedMapPoints(), current_frame_time);
-
-    // publish_ros_tracking_img(mpSLAM->GetCurrentFrame(), current_frame_time);
+    publish_ros_camera_pose(Twc, msg_time);
+    publish_ros_tf_transform(Twc, world_frame_id, cam_frame_id, msg_time);
+    publish_ros_tracked_mappoints(mpSLAM->GetTrackedMapPoints(), msg_time);
 }

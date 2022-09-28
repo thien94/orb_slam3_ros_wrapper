@@ -9,12 +9,12 @@
         <param name="settings_file" type="string"   value="$(find orb_slam3_ros_wrapper)/config/TUM1.yaml" />
     
         <!-- Parameters for ROS -->
-        <param name="map_frame_id"  type="string"   value="world" />
-        <param name="pose_frame_id" type="string"   value="camera" />
+        <param name="world_frame_id"    type="string"   value="world" />
+        <param name="cam_frame_id"      type="string"   value="camera" />
     </node>
     
     <!-- Visualization - RViz-->
-    <node name="rviz" pkg="rviz" type="rviz" args="-d $(find orb_slam3_ros_wrapper)/config/orb_slam3.rviz" output="screen" />
+    <node name="rviz" pkg="rviz" type="rviz" args="-d $(find orb_slam3_ros_wrapper)/config/orb_slam3_no_imu.rviz" output="screen" />
 
     <node pkg="hector_trajectory_server" type="hector_trajectory_server" name="trajectory_server_orb_slam3" output="screen" ns="orb_slam3_ros" >
         <param name="/target_frame_name" value="/world" />

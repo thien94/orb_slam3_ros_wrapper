@@ -1,8 +1,6 @@
-## **Note:** [A new version is available here](https://github.com/thien94/orb_slam_3_ros), where ORB-SLAM3 (V1.0) can be used like a normal ROS package.
-
 # ROS wrapper for ORB-SLAM3
 
-A ROS wrapper for [ORB-SLAM3](https://github.com/UZ-SLAMLab/ORB_SLAM3). The main idea is to use the ORB-SLAM3 as a standalone library and interface with it instead of putting everything in one package. 
+A ROS wrapper for [ORB-SLAM3](https://github.com/UZ-SLAMLab/ORB_SLAM3). The main idea is to use the ORB-SLAM3 as a standalone library and interface with it instead of putting everything together. For that, you can check out [this package](https://github.com/thien94/orb_slam_3_ros).
 
 Tested with ORB-SLAM3 V1.0, primarily on Ubuntu 20.04.
 
@@ -10,6 +8,7 @@ Tested with ORB-SLAM3 V1.0, primarily on Ubuntu 20.04.
   - Easy to update [ORB-SLAM3](https://github.com/UZ-SLAMLab/ORB_SLAM3#orb-slam3) indepedently.
   - Easy to replace different variants that are not built for ROS.
 - **Cons**:
+  - Dependent on the exposed APIs from ORB-SLAM3.
   - Development involves more steps (1. Make changes in ORB-SLAM3 library -> 2. Build ORB-SLAM3 -> 3. Change the roswrapper if necessary -> 4. Test).
   - Might break when dependencies or upstream changes.
 
@@ -76,7 +75,7 @@ sudo apt install ros-[DISTRO]-hector-trajectory-server
 
 - In one terminal, launch the node:
 ```
-roslaunch orb_slam3_ros_wrapper orb_slam3_euroc_monoimu.launch
+roslaunch orb_slam3_ros_wrapper euroc_monoimu.launch
 ```
 - In another terminal, playback the bag:
 ```
@@ -86,6 +85,6 @@ Similarly for other sensor types.
 
 # Topics
 The following topics are published by each node:
-- `/orb_slam3_ros/map_points` ([`PointCloud2`](http://docs.ros.org/en/melodic/api/sensor_msgs/html/msg/PointCloud2.html)) containing all keypoints being tracked.
-- `/orb_slam3_ros/camera` ([`PoseStamped`](http://docs.ros.org/en/melodic/api/geometry_msgs/html/msg/PoseStamped.html)): current pose of the camera in the world frame, as returned by ORB-SLAM3 with the world coordinate transformed to conform the ROS standard.
-- `tf`: transformation from the camera fraame to the world frame.
+- `/orb_slam3/map_points` ([`PointCloud2`](http://docs.ros.org/en/melodic/api/sensor_msgs/html/msg/PointCloud2.html)): all keypoints being tracked.
+- `/orb_slam3/camera_pose` ([`PoseStamped`](http://docs.ros.org/en/melodic/api/geometry_msgs/html/msg/PoseStamped.html)): current left camera pose in world frame, as returned by ORB-SLAM3.
+- `tf`: transformation from camera frame to world frame.
