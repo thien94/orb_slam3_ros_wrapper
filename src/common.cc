@@ -18,6 +18,9 @@ tf::Matrix3x3 tf_orb_to_ros(1, 0, 0,
                             0, 0, 1);
 
 
+//resize scale
+float resize_scale = 6;
+
 void setup_ros_publishers(ros::NodeHandle &node_handler, image_transport::ImageTransport &image_transport)
 {
     pose_pub = node_handler.advertise<geometry_msgs::PoseStamped> ("/orb_slam3_ros/camera", 1);
@@ -117,7 +120,7 @@ tf::Transform from_orb_to_ros_tf_transform(cv::Mat transformation_mat)
         orb_rotation.at<float> (2, 0), orb_rotation.at<float> (2, 1), orb_rotation.at<float> (2, 2)
     );
 
-    tf::Vector3 tf_camera_translation(orb_translation.at<float> (0), orb_translation.at<float> (1), orb_translation.at<float> (2));
+    tf::Vector3 tf_camera_translation(orb_translation.at<float> (0)*resize_scale, orb_translation.at<float> (1)*resize_scale, orb_translation.at<float> (2)*resize_scale);
 
     // cout << setprecision(9) << "Rotation: " << endl << orb_rotation << endl;
     // cout << setprecision(9) << "Translation xyz: " << orb_translation.at<float> (0) << " " << orb_translation.at<float> (1) << " " << orb_translation.at<float> (2) << endl;
@@ -182,7 +185,7 @@ sensor_msgs::PointCloud2 tracked_mappoints_to_pointcloud(std::vector<ORB_SLAM3::
 
             point_translation = tf_orb_to_ros * point_translation;
 
-            float data_array[num_channels] = {point_translation.x(), point_translation.y(), point_translation.z()};
+            float data_array[num_channels] = {point_translation.x()*resize_scale, point_translation.y()*resize_scale, point_translation.z()*resize_scale};
 
             memcpy(cloud_data_ptr+(i*cloud.point_step), data_array, num_channels*sizeof(float));
         }
