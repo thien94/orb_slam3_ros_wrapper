@@ -11,6 +11,12 @@
         <!-- Parameters for ROS -->
         <param name="world_frame_id"    type="string"   value="world" />
         <param name="cam_frame_id"      type="string"   value="camera" />
+        <param name="enable_pangolin"   type="bool"     value="true" />
+        
+        <!-- World frame orientation -->
+        <param name="world_roll"        type="double"   value="1.57079632679" />
+        <param name="world_pitch"       type="double"   value="0.0" />
+        <param name="world_yaw"         type="double"   value="1.57079632679" />
     </node>
     
     <!-- Visualization - RViz-->

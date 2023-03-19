@@ -49,6 +49,14 @@ int main(int argc, char **argv)
     bool enable_pangolin;
     node_handler.param<bool>(node_name + "/enable_pangolin", enable_pangolin, true);
     
+    // World frame orientation
+    Eigen::Vector3d rpy_rad;
+    std::string angle_names[3] = {"roll", "pitch", "yaw"};
+    for (int i = 0; i < 3; i++)
+    {
+        node_handler.param<double>(node_name + "/world_" + angle_names[i], rpy_rad(i), 0);
+    }
+    
     // Create SLAM system. It initializes all system threads and gets ready to process frames.
     sensor_type = ORB_SLAM3::System::STEREO;
     ORB_SLAM3::System SLAM(voc_file, settings_file, sensor_type, enable_pangolin);
@@ -60,7 +68,7 @@ int main(int argc, char **argv)
     message_filters::Synchronizer<sync_pol> sync(sync_pol(10), left_sub, right_sub);
     sync.registerCallback(boost::bind(&ImageGrabber::GrabStereo,&igb,_1,_2));
 
-    setup_ros_publishers(node_handler, image_transport, sensor_type);
+    setup_ros_publishers(node_handler, image_transport, rpy_rad);
 
     ros::spin();
 
@@ -97,8 +105,8 @@ void ImageGrabber::GrabStereo(const sensor_msgs::ImageConstPtr& msgLeft,const se
     }
 
     // Main algorithm runs here
-    Sophus::SE3f Tcw = mpSLAM->TrackStereo(cv_ptrLeft->image,cv_ptrRight->image,cv_ptrLeft->header.stamp.toSec());
-    Sophus::SE3f Twc = Tcw.inverse();
+    Sophus::SE3f Tcc0 = mpSLAM->TrackStereo(cv_ptrLeft->image,cv_ptrRight->image,cv_ptrLeft->header.stamp.toSec());
+    Sophus::SE3f Twc = (Tcc0 * Tc0w).inverse();
 
     ros::Time msg_time = cv_ptrLeft->header.stamp;
 

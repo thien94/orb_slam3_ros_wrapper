@@ -47,7 +47,7 @@ Visualization Manager:
         X: 0
         Y: 0
         Z: 0
-      Plane: XZ
+      Plane: XY
       Plane Cell Count: 20
       Reference Frame: <Fixed Frame>
       Value: true
@@ -172,17 +172,17 @@ Visualization Manager:
         Value: false
       Field of View: 0.7853981852531433
       Focal Point:
-        X: 0.3048234283924103
-        Y: -0.601781964302063
-        Z: -0.30492252111434937
+        X: 0.29072073101997375
+        Y: -0.16754643619060516
+        Z: 0.39407384395599365
       Focal Shape Fixed Size: true
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: -1.105202317237854
+      Pitch: 0.38479700684547424
       Target Frame: <Fixed Frame>
-      Yaw: 4.705009937286377
+      Yaw: 3.125005006790161
     Saved: ~
 Window Geometry:
   Displays:

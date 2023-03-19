@@ -76,7 +76,7 @@ int main(int argc, char **argv)
     ros::Subscriber sub_img_left = node_handler.subscribe("/camera/left/image_raw", 100, &ImageGrabber::GrabImageLeft, &igb);
     ros::Subscriber sub_img_right = node_handler.subscribe("/camera/right/image_raw", 100, &ImageGrabber::GrabImageRight, &igb);
 
-    setup_ros_publishers(node_handler, image_transport, sensor_type);
+    setup_ros_publishers(node_handler, image_transport);
 
     std::thread sync_thread(&ImageGrabber::SyncWithImu, &igb);
 

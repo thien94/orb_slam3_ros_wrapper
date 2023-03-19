@@ -8,37 +8,49 @@
 
 ORB_SLAM3::System::eSensor sensor_type;
 std::string world_frame_id, cam_frame_id, imu_frame_id;
+Sophus::SE3f Tc0w = Sophus::SE3f();
 
 ros::Publisher pose_pub, map_points_pub;
 
-void setup_ros_publishers(ros::NodeHandle &node_handler, image_transport::ImageTransport &image_transport, ORB_SLAM3::System::eSensor sensor_type)
+void setup_ros_publishers(ros::NodeHandle &node_handler, image_transport::ImageTransport &image_transport, Eigen::Vector3d rpy_rad)
 {
     pose_pub = node_handler.advertise<geometry_msgs::PoseStamped>("orb_slam3/camera_pose", 1);
 
     map_points_pub = node_handler.advertise<sensor_msgs::PointCloud2>("orb_slam3/map_points", 1);
+    
+    if (!rpy_rad.isZero(0))
+    {
+        Eigen::AngleAxisf AngleR(rpy_rad(0), Eigen::Vector3f::UnitX());
+        Eigen::AngleAxisf AngleP(rpy_rad(1), Eigen::Vector3f::UnitY());
+        Eigen::AngleAxisf AngleY(rpy_rad(2), Eigen::Vector3f::UnitZ());
+        Eigen::Quaternionf qRPY = AngleR * AngleP * AngleY;
+        Eigen::Matrix3f RotRPY = qRPY.matrix();
+        Tc0w = Sophus::SE3f(RotRPY, Eigen::Vector3f::Zero());
+        ROS_INFO("World frame will be rotated by RPY (in that order) %f %f %f (rad)", rpy_rad[0], rpy_rad[1], rpy_rad[2]);
+    }
 }
 
-void publish_ros_camera_pose(Sophus::SE3f Tcw_SE3f, ros::Time msg_time)
+void publish_ros_camera_pose(Sophus::SE3f Twc_SE3f, ros::Time msg_time)
 {
     geometry_msgs::PoseStamped pose_msg;
     pose_msg.header.frame_id = world_frame_id;
     pose_msg.header.stamp = msg_time;
 
-    pose_msg.pose.position.x = Tcw_SE3f.translation().x();
-    pose_msg.pose.position.y = Tcw_SE3f.translation().y();
-    pose_msg.pose.position.z = Tcw_SE3f.translation().z();
+    pose_msg.pose.position.x = Twc_SE3f.translation().x();
+    pose_msg.pose.position.y = Twc_SE3f.translation().y();
+    pose_msg.pose.position.z = Twc_SE3f.translation().z();
 
-    pose_msg.pose.orientation.w = Tcw_SE3f.unit_quaternion().coeffs().w();
-    pose_msg.pose.orientation.x = Tcw_SE3f.unit_quaternion().coeffs().x();
-    pose_msg.pose.orientation.y = Tcw_SE3f.unit_quaternion().coeffs().y();
-    pose_msg.pose.orientation.z = Tcw_SE3f.unit_quaternion().coeffs().z();
+    pose_msg.pose.orientation.w = Twc_SE3f.unit_quaternion().coeffs().w();
+    pose_msg.pose.orientation.x = Twc_SE3f.unit_quaternion().coeffs().x();
+    pose_msg.pose.orientation.y = Twc_SE3f.unit_quaternion().coeffs().y();
+    pose_msg.pose.orientation.z = Twc_SE3f.unit_quaternion().coeffs().z();
 
     pose_pub.publish(pose_msg);
 }
 
-void publish_ros_tf_transform(Sophus::SE3f T_SE3f, string frame_id, string child_frame_id, ros::Time msg_time)
+void publish_ros_tf_transform(Sophus::SE3f Twc_SE3f, string frame_id, string child_frame_id, ros::Time msg_time)
 {
-    tf::Transform tf_transform = SE3f_to_tfTransform(T_SE3f);
+    tf::Transform tf_transform = SE3f_to_tfTransform(Twc_SE3f);
 
     static tf::TransformBroadcaster tf_broadcaster;
 
@@ -96,9 +108,18 @@ sensor_msgs::PointCloud2 tracked_mappoints_to_pointcloud(std::vector<ORB_SLAM3::
     {
         if (map_points[i])
         {
-            Eigen::Vector3d P3Dw = map_points[i]->GetWorldPos().cast<double>();
+            // Original data
+            Eigen::Vector3f pMPw = map_points[i]->GetWorldPos();
+            
+            // Apply world frame orientation for non-IMU cases
+            if (sensor_type == ORB_SLAM3::System::MONOCULAR || sensor_type == ORB_SLAM3::System::STEREO)
+            {
+                Sophus::SE3f Tc0mp(Eigen::Matrix3f::Identity(), pMPw);
+                Sophus::SE3f Twmp = Tc0w.inverse() * Tc0mp;
+                pMPw = Twmp.translation();
+            }
 
-            tf::Vector3 point_translation(P3Dw.x(), P3Dw.y(), P3Dw.z());
+            tf::Vector3 point_translation(pMPw.x(), pMPw.y(), pMPw.z());
 
             float data_array[num_channels] = {
                 point_translation.x(),

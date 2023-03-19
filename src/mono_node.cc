@@ -48,6 +48,15 @@ int main(int argc, char **argv)
     bool enable_pangolin;
     node_handler.param<bool>(node_name + "/enable_pangolin", enable_pangolin, true);
 
+
+    // World frame orientation
+    Eigen::Vector3d rpy_rad;
+    std::string angle_names[3] = {"roll", "pitch", "yaw"};
+    for (int i = 0; i < 3; i++)
+    {
+        node_handler.param<double>(node_name + "/world_" + angle_names[i], rpy_rad(i), 0);
+    }
+
     // Create SLAM system. It initializes all system threads and gets ready to process frames.
     sensor_type = ORB_SLAM3::System::MONOCULAR;
     ORB_SLAM3::System SLAM(voc_file, settings_file, sensor_type, enable_pangolin);
@@ -55,7 +64,7 @@ int main(int argc, char **argv)
 
     ros::Subscriber sub_img0 = node_handler.subscribe("/camera/image_raw", 1, &ImageGrabber::GrabImage, &igb);
 
-    setup_ros_publishers(node_handler, image_transport, sensor_type);
+    setup_ros_publishers(node_handler, image_transport, rpy_rad);
 
     ros::spin();
 
@@ -82,13 +91,12 @@ void ImageGrabber::GrabImage(const sensor_msgs::ImageConstPtr& msg)
     }
 
     // ORB-SLAM3 runs in TrackMonocular()
-    Sophus::SE3f Tcw = mpSLAM->TrackMonocular(cv_ptr->image, cv_ptr->header.stamp.toSec());
-    Sophus::SE3f Twc = Tcw.inverse();
+    Sophus::SE3f Tcc0 = mpSLAM->TrackMonocular(cv_ptr->image, cv_ptr->header.stamp.toSec());
+    Sophus::SE3f Twc = (Tcc0 * Tc0w).inverse();
 
     ros::Time msg_time = msg->header.stamp;
 
     publish_ros_camera_pose(Twc, msg_time);
     publish_ros_tf_transform(Twc, world_frame_id, cam_frame_id, msg_time);
-    
     publish_ros_tracked_mappoints(mpSLAM->GetTrackedMapPoints(), msg_time);
 }
